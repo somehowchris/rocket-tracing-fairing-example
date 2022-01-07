@@ -21,7 +21,7 @@ impl Default for RequestId {
     }
 }
 
-// Allows a route to access the span
+// Allows a route to access the request id
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for RequestId {
     type Error = ();
