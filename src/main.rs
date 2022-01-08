@@ -28,8 +28,8 @@ use yansi::Paint;
 #[derive(Clone, Debug)]
 pub struct RequestId<T = Uuid>(pub T);
 
-impl Default for RequestId {
-    fn default() -> Self {
+impl RequestId {
+    fn generate() -> Self {
         Self(Uuid::new_v4())
     }
 }
@@ -61,7 +61,7 @@ impl Fairing for TracingFairing {
         }
     }
     async fn on_request(&self, req: &mut Request<'_>, _data: &mut Data<'_>) {
-        let request_id = RequestId::default();
+        let request_id = RequestId::generate();
         req.local_cache(|| RequestId(Some(request_id.0.to_owned())));
 
         let user_agent = req.headers().get_one("User-Agent").unwrap_or("");
@@ -132,7 +132,7 @@ use tracing_subscriber::field::MakeExt;
 
 pub enum LogType {
     Formatted,
-    Json
+    Json,
 }
 
 impl From<String> for LogType {
@@ -162,22 +162,24 @@ where
     .display_messages();
 
     tracing_subscriber::fmt::layer()
-                .fmt_fields(field_format)
-                // Configure the formatter to use `print!` rather than
-                // `stdout().write_str(...)`, so that logs are captured by libtest's test
-                // capturing.
-                .with_test_writer()
+        .fmt_fields(field_format)
+        // Configure the formatter to use `print!` rather than
+        // `stdout().write_str(...)`, so that logs are captured by libtest's test
+        // capturing.
+        .with_test_writer()
 }
 
-pub fn json_logging_layer<S: for<'a> tracing_subscriber::registry::LookupSpan<'a> + tracing::Subscriber>() -> impl tracing_subscriber::Layer<S> {
+pub fn json_logging_layer<
+    S: for<'a> tracing_subscriber::registry::LookupSpan<'a> + tracing::Subscriber,
+>() -> impl tracing_subscriber::Layer<S> {
     Paint::disable();
 
-            tracing_subscriber::fmt::layer()
-                .json()
-                // Configure the formatter to use `print!` rather than
-                // `stdout().write_str(...)`, so that logs are captured by libtest's test
-                // capturing.
-                .with_test_writer()
+    tracing_subscriber::fmt::layer()
+        .json()
+        // Configure the formatter to use `print!` rather than
+        // `stdout().write_str(...)`, so that logs are captured by libtest's test
+        // capturing.
+        .with_test_writer()
 }
 
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
@@ -228,7 +230,8 @@ fn rocket() -> _ {
 
     LogTracer::init().expect("Unable to setup log tracer!");
 
-    let log_type = LogType::from(std::env::var("LOG_TYPE").unwrap_or("formatted".to_string()));
+    let log_type =
+        LogType::from(std::env::var("LOG_TYPE").unwrap_or_else(|_| "formatted".to_string()));
     let log_level = LogLevel::from(
         std::env::var("LOG_LEVEL")
             .unwrap_or_else(|_| "normal".to_string())
@@ -238,13 +241,17 @@ fn rocket() -> _ {
     match log_type {
         LogType::Formatted => {
             tracing::subscriber::set_global_default(
-                tracing_subscriber::registry().with(default_logging_layer()).with(filter_layer(log_level)),
+                tracing_subscriber::registry()
+                    .with(default_logging_layer())
+                    .with(filter_layer(log_level)),
             )
             .unwrap();
-        },
+        }
         LogType::Json => {
             tracing::subscriber::set_global_default(
-                tracing_subscriber::registry().with(json_logging_layer()).with(filter_layer(log_level)),
+                tracing_subscriber::registry()
+                    .with(json_logging_layer())
+                    .with(filter_layer(log_level)),
             )
             .unwrap();
         }
