@@ -66,6 +66,7 @@ impl Fairing for TracingFairing {
 
         let span = info_span!(
             "request",
+            otel.name=%format!("{} {}", req.method(), req.uri().path()),
             method = %req.method(),
             uri = %req.uri().path(),
             user_agent,
