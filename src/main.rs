@@ -1,3 +1,5 @@
+#![deny(unsafe_code, clippy::all)]
+
 #[macro_use]
 extern crate rocket;
 
@@ -128,15 +130,29 @@ pub async fn abc<'a>(
 
 use tracing_subscriber::field::MakeExt;
 
-pub fn logging_layer<S>() -> impl Layer<S>
+pub enum LogType {
+    Formatted,
+    Json
+}
+
+impl From<String> for LogType {
+    fn from(input: String) -> Self {
+        match input.as_str() {
+            "formatted" => Self::Formatted,
+            "json" => Self::Json,
+            _ => panic!("Unkown log type {}", input),
+        }
+    }
+}
+
+pub fn default_logging_layer<S>() -> impl Layer<S>
 where
     S: tracing::Subscriber,
     S: for<'span> LookupSpan<'span>,
 {
     let field_format = tracing_subscriber::fmt::format::debug_fn(|writer, field, value| {
         // We'll format the field name and value separated with a colon.
-        let name = field.name();
-        if name == "message" {
+        if field.name() == "message" {
             write!(writer, "{:?}", Paint::new(value).bold())
         } else {
             write!(writer, "{}: {:?}", field, Paint::default(value).bold())
@@ -146,11 +162,22 @@ where
     .display_messages();
 
     tracing_subscriber::fmt::layer()
-        .fmt_fields(field_format)
-        // Configure the formatter to use `print!` rather than
-        // `stdout().write_str(...)`, so that logs are captured by libtest's test
-        // capturing.
-        .with_test_writer()
+                .fmt_fields(field_format)
+                // Configure the formatter to use `print!` rather than
+                // `stdout().write_str(...)`, so that logs are captured by libtest's test
+                // capturing.
+                .with_test_writer()
+}
+
+pub fn json_logging_layer<S: for<'a> tracing_subscriber::registry::LookupSpan<'a> + tracing::Subscriber>() -> impl tracing_subscriber::Layer<S> {
+    Paint::disable();
+
+            tracing_subscriber::fmt::layer()
+                .json()
+                // Configure the formatter to use `print!` rather than
+                // `stdout().write_str(...)`, so that logs are captured by libtest's test
+                // capturing.
+                .with_test_writer()
 }
 
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
@@ -199,20 +226,29 @@ pub fn filter_layer(level: LogLevel) -> EnvFilter {
 fn rocket() -> _ {
     use tracing_subscriber::prelude::*;
 
-    Paint::disable();
-
     LogTracer::init().expect("Unable to setup log tracer!");
 
-    tracing::subscriber::set_global_default(
-        tracing_subscriber::registry()
-            .with(logging_layer())
-            .with(filter_layer(LogLevel::from(
-                std::env::var("LOG_LEVEL")
-                    .unwrap_or_else(|_| "normal".to_string())
-                    .as_str(),
-            ))),
-    )
-    .unwrap();
+    let log_type = LogType::from(std::env::var("LOG_TYPE").unwrap_or("formatted".to_string()));
+    let log_level = LogLevel::from(
+        std::env::var("LOG_LEVEL")
+            .unwrap_or_else(|_| "normal".to_string())
+            .as_str(),
+    );
+
+    match log_type {
+        LogType::Formatted => {
+            tracing::subscriber::set_global_default(
+                tracing_subscriber::registry().with(default_logging_layer()).with(filter_layer(log_level)),
+            )
+            .unwrap();
+        },
+        LogType::Json => {
+            tracing::subscriber::set_global_default(
+                tracing_subscriber::registry().with(json_logging_layer()).with(filter_layer(log_level)),
+            )
+            .unwrap();
+        }
+    };
 
     rocket::build()
         .mount("/", routes![abc])
