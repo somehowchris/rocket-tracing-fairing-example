@@ -26,13 +26,7 @@ use yansi::Paint;
 // Spans
 
 #[derive(Clone, Debug)]
-pub struct RequestId<T = Uuid>(pub T);
-
-impl RequestId {
-    fn generate() -> Self {
-        Self(Uuid::new_v4())
-    }
-}
+pub struct RequestId<T = String>(pub T);
 
 // Allows a route to access the request id
 #[rocket::async_trait]
@@ -40,7 +34,7 @@ impl<'r> FromRequest<'r> for RequestId {
     type Error = ();
 
     async fn from_request(request: &'r Request<'_>) -> Outcome<Self, ()> {
-        match &*request.local_cache(|| RequestId::<Option<Uuid>>(None)) {
+        match &*request.local_cache(|| RequestId::<Option<String>>(None)) {
             RequestId(Some(request_id)) => Outcome::Success(RequestId(request_id.to_owned())),
             RequestId(None) => Outcome::Failure((Status::InternalServerError, ())),
         }
@@ -61,10 +55,14 @@ impl Fairing for TracingFairing {
         }
     }
     async fn on_request(&self, req: &mut Request<'_>, _data: &mut Data<'_>) {
-        let request_id = RequestId::generate();
-        req.local_cache(|| RequestId(Some(request_id.0.to_owned())));
-
         let user_agent = req.headers().get_one("User-Agent").unwrap_or("");
+        let request_id = req
+            .headers()
+            .get_one("X-Request-Id")
+            .map(ToString::to_string)
+            .unwrap_or_else(|| Uuid::new_v4().to_string());
+
+        req.local_cache(|| RequestId(Some(request_id.to_owned())));
 
         let span = info_span!(
             "request",
@@ -73,16 +71,19 @@ impl Fairing for TracingFairing {
             uri = %req.uri().path(),
             user_agent,
             status_code = tracing::field::Empty,
-            request_id=%request_id.0
+            request_id=%request_id
         );
 
         req.local_cache(|| TracingSpan::<Option<Span>>(Some(span)));
     }
 
     async fn on_response<'r>(&self, req: &'r Request<'_>, res: &mut Response<'r>) {
-        let span = req.local_cache(|| TracingSpan::<Option<Span>>(None));
-        if let Some(span) = &span.0 {
+        if let Some(span) = &req.local_cache(|| TracingSpan::<Option<Span>>(None)).0 {
             span.record("status_code", &res.status().code);
+        }
+
+        if let Some(request_id) = &req.local_cache(|| RequestId::<Option<String>>(None)).0 {
+            res.set_raw_header("X-Request-Id", request_id);
         }
     }
 }
@@ -116,7 +117,7 @@ pub async fn abc<'a>(
 
     let mock_data = OutputData {
         message: "Hello World",
-        request_id: request_id.0.to_string(),
+        request_id: request_id.0,
     };
     span.0.record(
         "output",

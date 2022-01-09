@@ -30,6 +30,20 @@ You can controll these with the environment variable `LOG_LEVEL`:
 - `debug`: Shows debuging with tracing 
 - `off`: Shows exactly nothing
 
+## Request-Tracing
+
+You need to add the `enter` and `drop` statements inside your request as Rocket will not enter the span by default as it is currently not implemented in the base repository.
+
+### Names
+
+If your parser follows the opentelemetry spec it will pick up the `otel.name` field as the name of the span which is a composit of the uri path and the method
+
+### Request Ids
+
+You may be hosting rocket on a platform which provides it's own request ids via the `X-Request-Id` standard. If so rocket will pick this up and add it to the request span.
+
+If not rocket will create a uuid, use that and append it as the `X-Request-Id` header to the response.
+
 ### Why isn't this a crate?
 
 As of right now I have has 4 people asking me the same question about tracing and rocket from difference perspektives within 4 days. If more people point out their desire to have a crate for this please open an issue and let the people vote.
