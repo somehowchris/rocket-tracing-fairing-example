@@ -67,11 +67,11 @@ impl Fairing for TracingFairing {
         let span = info_span!(
             "request",
             otel.name=%format!("{} {}", req.method(), req.uri().path()),
-            method = %req.method(),
-            uri = %req.uri().path(),
-            user_agent,
-            status_code = tracing::field::Empty,
-            request_id=%request_id
+            http.method = %req.method(),
+            http.uri = %req.uri().path(),
+            http.user_agent,
+            http.status_code = tracing::field::Empty,
+            http.request_id=%request_id
         );
 
         req.local_cache(|| TracingSpan::<Option<Span>>(Some(span)));
@@ -79,7 +79,7 @@ impl Fairing for TracingFairing {
 
     async fn on_response<'r>(&self, req: &'r Request<'_>, res: &mut Response<'r>) {
         if let Some(span) = &req.local_cache(|| TracingSpan::<Option<Span>>(None)).0 {
-            span.record("status_code", &res.status().code);
+            span.record("http.status_code", &res.status().code);
         }
 
         if let Some(request_id) = &req.local_cache(|| RequestId::<Option<String>>(None)).0 {
