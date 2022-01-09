@@ -69,7 +69,7 @@ impl Fairing for TracingFairing {
             otel.name=%format!("{} {}", req.method(), req.uri().path()),
             http.method = %req.method(),
             http.uri = %req.uri().path(),
-            http.user_agent,
+            http.user_agent=%user_agent,
             http.status_code = tracing::field::Empty,
             http.request_id=%request_id
         );
@@ -78,8 +78,15 @@ impl Fairing for TracingFairing {
     }
 
     async fn on_response<'r>(&self, req: &'r Request<'_>, res: &mut Response<'r>) {
-        if let Some(span) = &req.local_cache(|| TracingSpan::<Option<Span>>(None)).0 {
-            span.record("http.status_code", &res.status().code);
+        if let Some(span) = req.local_cache(|| TracingSpan::<Option<Span>>(None)).0.to_owned() {
+            let _entered_span = span.entered();
+            _entered_span.record("http.status_code", &res.status().code);
+
+            if let Some(request_id) = &req.local_cache(|| RequestId::<Option<String>>(None)).0 {
+                info!("Returning request {} with {}", request_id, res.status());
+            }
+
+            drop(_entered_span);
         }
 
         if let Some(request_id) = &req.local_cache(|| RequestId::<Option<String>>(None)).0 {
@@ -111,7 +118,7 @@ pub struct OutputData<'a> {
 pub async fn abc<'a>(
     span: TracingSpan,
     request_id: RequestId,
-) -> Result<Json<OutputData<'a>>, Status> {
+) -> Result<Json<OutputData<'a>>, (Status, Json<OutputData<'a>>)> {
     let entered = span.0.enter();
     info!("Hello World");
 
@@ -124,7 +131,7 @@ pub async fn abc<'a>(
         &serde_json::to_string(&mock_data).unwrap().as_str(),
     );
     drop(entered);
-    Ok(Json(mock_data))
+    Err((Status::NotFound, Json(mock_data)))
 }
 
 // Logging
