@@ -15,6 +15,7 @@ use rocket::{
     Data, Request, Response,
 };
 
+
 use tracing::{info_span, Span};
 use tracing_log::LogTracer;
 
@@ -109,6 +110,7 @@ impl<'r> FromRequest<'r> for TracingSpan {
 }
 
 #[derive(Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct OutputData<'a> {
     pub message: &'a str,
     pub request_id: String,
