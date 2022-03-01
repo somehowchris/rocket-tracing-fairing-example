@@ -10,7 +10,7 @@ rocket = { version = "0.5.0-rc.1", features = ["json"] }
 serde = {version="1.0.136", features=["derive"]}
 serde_json = "1.0.79"
 tracing = "0.1.31"
-tracing-appender = "0.2.0"
+tracing-appender = "0.2.1"
 tracing-log = "0.1.2"
 tracing-subscriber = {version="0.3.9", features=["env-filter", "json", "registry", "smallvec"]}
 uuid = {version="0.8.2", features = ["v4"]}
