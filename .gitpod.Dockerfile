@@ -1,1 +1,1 @@
-FROM chweicki/gitpod-rust-workspace:0.1.1
+FROM chweicki/gitpod-rust-workspace:0.1.2
