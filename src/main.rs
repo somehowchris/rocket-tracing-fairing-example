@@ -15,7 +15,6 @@ use rocket::{
     Data, Request, Response,
 };
 
-
 use tracing::{info_span, Span};
 use tracing_log::LogTracer;
 
@@ -35,9 +34,9 @@ impl<'r> FromRequest<'r> for RequestId {
     type Error = ();
 
     async fn from_request(request: &'r Request<'_>) -> Outcome<Self, ()> {
-        match &*request.local_cache(|| RequestId::<Option<String>>(None)) {
+        match request.local_cache(|| RequestId::<Option<String>>(None)) {
             RequestId(Some(request_id)) => Outcome::Success(RequestId(request_id.to_owned())),
-            RequestId(None) => Outcome::Failure((Status::InternalServerError, ())),
+            RequestId(None) => Outcome::Error((Status::InternalServerError, ())),
         }
     }
 }
@@ -79,9 +78,13 @@ impl Fairing for TracingFairing {
     }
 
     async fn on_response<'r>(&self, req: &'r Request<'_>, res: &mut Response<'r>) {
-        if let Some(span) = req.local_cache(|| TracingSpan::<Option<Span>>(None)).0.to_owned() {
+        if let Some(span) = req
+            .local_cache(|| TracingSpan::<Option<Span>>(None))
+            .0
+            .to_owned()
+        {
             let _entered_span = span.entered();
-            _entered_span.record("http.status_code", &res.status().code);
+            _entered_span.record("http.status_code", res.status().code);
 
             if let Some(request_id) = &req.local_cache(|| RequestId::<Option<String>>(None)).0 {
                 info!("Returning request {} with {}", request_id, res.status());
@@ -102,9 +105,9 @@ impl<'r> FromRequest<'r> for TracingSpan {
     type Error = ();
 
     async fn from_request(request: &'r Request<'_>) -> Outcome<Self, ()> {
-        match &*request.local_cache(|| TracingSpan::<Option<Span>>(None)) {
+        match request.local_cache(|| TracingSpan::<Option<Span>>(None)) {
             TracingSpan(Some(span)) => Outcome::Success(TracingSpan(span.to_owned())),
-            TracingSpan(None) => Outcome::Failure((Status::InternalServerError, ())),
+            TracingSpan(None) => Outcome::Error((Status::InternalServerError, ())),
         }
     }
 }
@@ -130,7 +133,7 @@ pub async fn abc<'a>(
     };
     span.0.record(
         "output",
-        &serde_json::to_string(&mock_data).unwrap().as_str(),
+        serde_json::to_string(&mock_data).unwrap().as_str(),
     );
     drop(entered);
     Err((Status::NotFound, Json(mock_data)))
@@ -209,14 +212,14 @@ pub enum LogLevel {
 
 impl From<&str> for LogLevel {
     fn from(s: &str) -> Self {
-        return match &*s.to_ascii_lowercase() {
+        match &*s.to_ascii_lowercase() {
             "critical" => LogLevel::Critical,
             "support" => LogLevel::Support,
             "normal" => LogLevel::Normal,
             "debug" => LogLevel::Debug,
             "off" => LogLevel::Off,
             _ => panic!("a log level (off, debug, normal, support, critical)"),
-        };
+        }
     }
 }
 
