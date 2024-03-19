@@ -14,4 +14,4 @@ tracing-appender = "0.2.3"
 tracing-log = "0.2.0"
 tracing-subscriber = {version="0.3.18", features=["env-filter", "json", "registry", "smallvec"]}
 uuid = {version="1.8.0", features = ["v4"]}
-yansi = "0.5.1"
+yansi = "1.0.1"
