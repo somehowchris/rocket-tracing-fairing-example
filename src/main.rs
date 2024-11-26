@@ -166,9 +166,9 @@ where
     let field_format = tracing_subscriber::fmt::format::debug_fn(|writer, field, value| {
         // We'll format the field name and value separated with a colon.
         if field.name() == "message" {
-            write!(writer, "{:?}", Paint::new(value).bold())
+            write!(writer, "{:?}", value.bold())
         } else {
-            write!(writer, "{}: {:?}", field, Paint::default(value).bold())
+            write!(writer, "{}: {:?}", field, value.bold())
         }
     })
     .delimited(", ")
@@ -185,7 +185,7 @@ where
 pub fn json_logging_layer<
     S: for<'a> tracing_subscriber::registry::LookupSpan<'a> + tracing::Subscriber,
 >() -> impl tracing_subscriber::Layer<S> {
-    Paint::disable();
+    yansi::disable();
 
     tracing_subscriber::fmt::layer()
         .json()
