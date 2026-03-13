@@ -20,14 +20,16 @@ jobs:
         with:
           toolchain: stable
 
+      - uses: Swatinem/rust-cache@v2
+
       - name: Run check
         run: cargo check
 
+      - name: Install cargo-tarpaulin
+        run: cargo install cargo-tarpaulin
+
       - name: Run cargo-tarpaulin
-        uses: actions-rs/tarpaulin@v0.1
-        with:
-          version: "0.19.1"
-          args: "-- --test-threads 1"
+        run: cargo tarpaulin -- --test-threads 1
 
       - name: Upload to codecov.io
         uses: codecov/codecov-action@v5.5.2
