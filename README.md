@@ -1,4 +1,14 @@
 # Rocket Tracing Fairing Example
+
+> [!WARNING]
+> **Discontinued — final release v0.2.0 (2026-10-18).**
+>
+> This example is retired because development of the original Rocket upstream has stalled. It is preserved for historical reference and is no longer maintained. No further features, dependency updates, bug fixes, or security fixes are planned. Do not use it as a maintained starting point for new projects.
+>
+> Rocket's [upstream discussion](https://github.com/rwf2/Rocket/discussions/2940) describes the maintenance situation and community continuation efforts; this notice concerns the retirement of this example, not every Rocket-derived project.
+>
+> The repository is archived after the final release. Existing code and documentation remain available as reference.
+
 [![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/somehowchris/rocket-tracing-fairing-example)
 
 This repository aims to give a short example of how you can add a Fairing to your Rocket for tracing and how to use it in requests.
@@ -46,4 +56,4 @@ If not rocket will create a uuid, use that and append it as the `X-Request-Id` h
 
 ### Why isn't this a crate?
 
-As of right now I have has 4 people asking me the same question about tracing and rocket from difference perspektives within 4 days. If more people point out their desire to have a crate for this please open an issue and let the people vote.
+This repository was created as a small tracing example rather than a published crate. It is now discontinued and will not be developed into a crate.
