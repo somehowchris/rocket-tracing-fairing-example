@@ -274,3 +274,52 @@ fn rocket() -> _ {
         .mount("/", routes![abc])
         .attach(TracingFairing)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rocket::http::Header;
+    use rocket::local::asynchronous::Client;
+
+    #[rocket::async_test]
+    async fn preserves_request_id_in_response_and_body() {
+        let client = Client::tracked(
+            rocket::build()
+                .mount("/", routes![abc])
+                .attach(TracingFairing),
+        )
+        .await
+        .unwrap();
+        let response = client
+            .get("/abc")
+            .header(Header::new("X-Request-Id", "test-id"))
+            .dispatch()
+            .await;
+        assert_eq!(response.status(), Status::NotFound);
+        assert_eq!(response.headers().get_one("X-Request-Id"), Some("test-id"));
+        let body: serde_json::Value = response.into_json().await.unwrap();
+        assert_eq!(body["requestId"], "test-id");
+        assert_eq!(body["message"], "Hello World");
+    }
+
+    #[rocket::async_test]
+    async fn generates_request_id_when_header_is_missing() {
+        let client = Client::tracked(
+            rocket::build()
+                .mount("/", routes![abc])
+                .attach(TracingFairing),
+        )
+        .await
+        .unwrap();
+        let response = client.get("/abc").dispatch().await;
+        assert_eq!(response.status(), Status::NotFound);
+        let request_id = response
+            .headers()
+            .get_one("X-Request-Id")
+            .unwrap()
+            .to_owned();
+        assert!(Uuid::parse_str(&request_id).is_ok());
+        let body: serde_json::Value = response.into_json().await.unwrap();
+        assert_eq!(body["requestId"], request_id);
+    }
+}
